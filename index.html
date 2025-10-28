@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+<head>
+    <title>Space Target Practice</title>
+    
+    <style>
+        #hacking-intro {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            z-index: 9999;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: top;
+        }
+
+        .terminal-line {
+            margin: 5px 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .terminal-line.show {
+            opacity: 1;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+
+    <script>
+        // Game variables
+        let spheresClicked = 0;
+        const maxSpheres = 20;
+        let gameActive = false; // Start as false until intro finishes
+        let activeSpheres = 0;
+        const maxActiveSpheres = 8;
+
+        // Sphere colors
+        const colors = ['#9FD0E3', '#02FCA9', '#6721FF'];
+
+        // Hacking intro system - 10 seconds total
+        const hackingLines = [
+            "INITIALIZING SECURE CONNECTION...",
+            ">>> CONNECTING TO DEFENSE NETWORK",
+            "ACCESS GRANTED: MILITARY SPACE COMMAND",
+            "LOADING TARGET ACQUISITION MODULE...",
+            ">>> CALIBRATING WEAPON SYSTEMS",
+            "SCANNING FOR HOSTILE ENTITIES...",
+            "WARNING: UNKNOWN OBJECTS DETECTED",
+            ">>> THREAT LEVEL: MODERATE",
+            "ACTIVATING DEFENSE PROTOCOL",
+            "TARGETS LOCKED - ENGAGEMENT AUTHORIZED",
+            "LAUNCHING SPACE DEFENSE SIMULATOR...",
+            ">>> SYSTEMS ONLINE",
+            "GOOD LUCK, COMMANDER.",
+            "MISSION STARTS IN 3... 2... 1..."
+        ];
+
+        function showHackingIntro() {
+            const intro = document.getElementById('hacking-intro');
+            const terminal = document.getElementById('terminal-content');
+            
+            if (!intro || !terminal) {
+                console.log("Intro elements not found, starting game directly");
+                startGame();
+                return;
+            }
+            
+            let lineIndex = 0;
+            
+            function typeLine() {
+                if (lineIndex < hackingLines.length) {
+                    const line = document.createElement('div');
+                    line.className = 'terminal-line';
+                    line.innerHTML = '> ' + hackingLines[lineIndex] + '<span class="cursor">&nbsp;</span>';
+                    terminal.appendChild(line);
+                    
+                    // Show the line
+                    setTimeout(() => {
+                        line.classList.add('show');
+                    }, 100);
+                    
+                    lineIndex++;
+                    
+                    // Next line after delay (10 seconds / 14 lines = ~700ms per line)
+                    setTimeout(typeLine, 2000);
+                } else {
+                    // Intro complete - hide and start game after 1 more second
+                    setTimeout(() => {
+                        intro.classList.add('hidden');
+                        startGame();
+                    }, 1000);
+                }
+            }
+            
+            // Start typing immediately
+            typeLine();
+        }
+
+        function startGame() {
+            gameActive = true;
+            console.log("Game starting!");
+            
+            // Spawn initial spheres
+            setTimeout(() => {
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => spawnSphere(), i * 500);
+                }
+                setInterval(spawnSphere, 2000);
+            }, 500);
+        }
+
+        // Your existing game components...
+		// Component to create moving targets
+AFRAME.registerComponent('target-sphere', {
+    init: function() {
+        activeSpheres++;
+        
+        // Random starting position (10 meters away, spread out)
+        const x = (Math.random() - 0.5) * 16; // -8 to 8
+        const y = (Math.random() - 0.5) * 8;  // -4 to 4
+        const z = -8; // Always 10 meters in front
+        
+        this.el.setAttribute('position', `${x} ${y} ${z}`);
+        
+        // Random movement direction
+        this.velocity = {
+            x: (Math.random() - 0.5) * 0.5,
+            y: (Math.random() - 0.5) * 0.5,
+            z: (Math.random() - 0.5) * 0.2
+        };
+        
+        // Handle clicking
+        this.el.addEventListener('click', () => {
+            if (gameActive) {
+                spheresClicked++;
+                activeSpheres--;
+                console.log(`Spheres hit: ${spheresClicked}`);
+                
+                // Remove this sphere
+                this.el.parentNode.removeChild(this.el);
+                
+                // Check if game is over
+                if (spheresClicked >= maxSpheres) {
+                    gameActive = false;
+                    alert(`Game Over! You hit all ${maxSpheres} targets!`);
+                }
+            }
+        });
+    },
+    
+    tick: function() {
+        if (gameActive) {
+            // Get current position
+            let currentPos = this.el.getAttribute('position');
+            
+            // Update position with velocity
+            currentPos.x += this.velocity.x * 0.016;
+            currentPos.y += this.velocity.y * 0.016;
+            currentPos.z += this.velocity.z * 0.016;
+            
+            // Keep spheres in front of camera
+            if (currentPos.z > -5) {
+                this.velocity.z = -Math.abs(this.velocity.z);
+            }
+            if (currentPos.z < -15) {
+                this.velocity.z = Math.abs(this.velocity.z);
+            }
+            
+            // Apply the new position
+            this.el.setAttribute('position', currentPos);
+        }
+    }
+});
+
+// Function to spawn a new sphere
+function spawnSphere() {
+    if (gameActive && activeSpheres < maxActiveSpheres) {
+        const scene = document.querySelector('a-scene');
+        const sphere = document.createElement('a-sphere');
+        
+        // Random color
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        
+        sphere.setAttribute('target-sphere', '');
+        sphere.setAttribute('radius', '0.25');
+        sphere.setAttribute('material', `color: ${randomColor}`);
+        sphere.setAttribute('class', 'clickable');
+        
+        scene.appendChild(sphere);
+    }
+}
+
+        // (I'll include the rest in the next part)
+		// Start the intro when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Page loaded, starting intro");
+    showHackingIntro();
+});
+    </script>
+</head>
+
+
+    <title>Space Target Practice</title>
+</head>
+<body>
+<div id="hacking-intro">
+    <div id="terminal-content"></div>
+</div>
+    <a-scene background="color: #000011">
+        <!-- Camera with cursor for clicking -->
+        <a-camera>
+            <a-cursor 
+                position="0 0 -1"
+                geometry="primitive: triangle; vertex-a: 0 0 -1; vertex-b: -0.1 -0.2 -1; vertex-c: 0.1 -0.2 -1;"
+                material="color: #02CF09; shader: flat">
+            </a-cursor>
+        </a-camera>
+    </a-scene>
+</body>
+</html>
+
